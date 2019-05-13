@@ -1,21 +1,24 @@
 
-from src.models import *
 from flask import Flask, redirect, render_template, url_for, flash, jsonify, request
 from flask_cors import CORS
 from config import Config
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import login_required, current_user, LoginManager
+from flask_moment import Moment
+
 
 app = Flask(__name__)
 CORS(app)
 
 app.config.from_object(Config)
 db = SQLAlchemy(app)
+moment = Moment(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 
+from src.models import *
 
 @app.route('/')
 @app.route('/home')
@@ -75,19 +78,23 @@ def login():
     return redirect("http://localhost:3000/login")
 
 
-# @app.route('/team/create', methods=['POST'])
-# def create_team():
-#     if request.method == 'POST':
-#         data = request.get_json()
-#         team = Team(name=data['name'], description=data['description'], location=data['location'], email=data['email'], user_id=data['user_id'],
-#                     isActive=data['isActive'], img_url=data['img_url'])
-#         if team:
-#             db.sesson.add(team)
-#             db.session.commit()
-#             return jsonify({'success': True, 'team_id': team.id})
-#         else:
-#             return jsonify({'success': False, 'error': 'invalid input'})
-#     return jsonify({'message': 'invalid method'})
+@app.route('/team/create', methods=['POST', 'GET'])
+def create_team():
+    if request.method == 'POST':
+        data = request.get_json()
+        location = Location(address=data['location']['address'], lat = data['location']['lat'], lng = data['location']['lng'])
+        db.session.add(location)
+        db.session.commit()
+        creater = UserVisit.query.filter_by(username=data['creater']).first()
+        team = Team(name=data['name'], description=data['description'], location_id=location.id, email=data['email'], user_id= creater.id,
+                    isActive=data['isActive'], img_url=data['img_url'])
+        if team:
+            db.session.add(team)
+            db.session.commit()
+            return jsonify({'success': True, 'team_id': team.id})
+        else:
+            return jsonify({'success': False, 'error': 'invalid input'})
+    return jsonify({'message': 'invalid method'})
 
 
 # @app.route('/teams', methods=['GET'])

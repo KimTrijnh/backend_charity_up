@@ -1,7 +1,9 @@
 from src import db
 from flask_login import UserMixin, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 import uuid
+
 
 class UserVisit(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -17,106 +19,83 @@ class UserVisit(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 
-
 class Token(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     uuid = db.Column(db.String, unique=True)
-    user_id = db.Column(db.Integer, db.ForeignKey(UserVisit.id), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey(
+        UserVisit.id), nullable=False)
     user = db.relationship(UserVisit)
 
 
-# class Team(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     name = db.Column(db.String(64), nullable=False, unique=True)
-#     description = db.Column(db.String, nullable=False)
-#     location = db.Column(db.String, nullable=False)
-#     email= db.Column(db.String, nullable=False)
-#     user_id = db.Column(db.Integer, db.ForeignKey(UserVisit.id), nullable=False)
-#     create_at = db.Column(db.DateTime, )
-#     isActive = db.Column(db.Boolean, default=False)
-#     img_url= db.Column(db.String, nullable=True)
-#     # members = db.Column()
-#     # campaigns = db.Column()
-#     # reviews = db.Column()
+class Team(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), nullable=False, unique=True)
+    description = db.Column(db.String, nullable=False)
+    location_id = db.Column(db.Integer, db.ForeignKey('location.id'), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_visit.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default = datetime.utcnow, server_default= db.func.now())
+    isActive = db.Column(db.Boolean, default=False)
+    img_url = db.Column(db.String, nullable=True)
+    # members = db.relationship('user_visit', backref='team', lazy=True)
+    campaigns = db.relationship('Campaign', backref='team', lazy=True)
+    reviews = db.relationship('Review', backref='team', lazy=True)
 
-# class Campaigns(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     name = db.Column(db.String(64), nullable=False, unique=True)
-#     description = db.Column(db.String, nullable=False)
-#     location = db.Column(db.String, nullable=False)
-#     team_id = db.Column(db.Integer, db.ForeignKey(Team.id), nullable=True)
-#     user_id = db.Column(db.Integer, db.ForeignKey(UserVisit.id), nullable=True)
-#     create_at = db.Column(db.DateTime)
-#     start_at = db.Column(db.DateTime)
-#     end_at = db.Column(db.DateTime)
-#     img_url = db.Column(db.String)
-#     bank_id = db.Column(db.Integer, db.ForeignKey(Bank.id), default=None)
-#     # donations = db.Column()
-#     #members
-#     #reviews
+  
+class Campaign(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), nullable=False, unique=True)
+    description = db.Column(db.String, nullable=False)
+    location_id = db.Column(db.Integer, db.ForeignKey('location.id'), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_visit.id'), nullable=True)
+    create_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    start_at = db.Column(db.DateTime, nullable=False, index=True)
+    end_at = db.Column(db.DateTime, nullable=False, index=True)
+    img_url = db.Column(db.String, nullable=True)
+    isActive = db.Column(db.Boolean, default=False)
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), default=None)
+    donations = db.relationship('Donation', backref='campaign', lazy=True)
+    # members = db.relationship('user_visit', backref='team', lazy=True)
+    reviews = db.relationship('Review', backref='campaign', lazy=True)
 
-# class Review(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     rating = db.Column(db.Integer, nullable=True)
-#     text = db.Column(db.String, nullable=True)
-#     user_id = db.Column(db.Integer, db.ForeignKey(UserVisit.id), nullable=False)
-#     team_id = db.Column(db.Integer, db.ForeignKey(Team.id))
-#     campaign_id = db.Column(db.Integer, db.ForeignKey(Campaign.id))
 
-# class Donation(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     amount = db.Column(db.String, nullable=False)
-#     user_id = db.Column(db.Integer, db.ForeignKey(UserVisit.id), nullable=False)
-#     campaign_id = db.Column(db.Integer, db.ForeignKey(Campaign.id))
+class Review(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    rating = db.Column(db.Integer, nullable=True)
+    text = db.Column(db.String, nullable=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_visit.id'), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'))
+    campaign_id = db.Column(db.Integer, db.ForeignKey('campaign.id'))
 
-# class Bank(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     provider = db.Column(db.String, nullable=False)
-#     account_no = db.Column(db.Integer, nullable=False)
-#     campaign_id = db.Column(db.Integer, db.ForeignKey(Campaign.id), nullable=False)
+class Donation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    amount = db.Column(db.String, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user_visit.id'), nullable=False)
+    campaign_id = db.Column(db.Integer, db.ForeignKey('campaign.id'), nullable=False)
 
-# class Location(db.Model):
-#     id = db.Column(db.Integer, primary_key=True)
-#     address = db.Column(db.String)
-#     lat = db.Column(db.Float)
-#     long = db.Column(db.Float)
-#     team_id = db.Column(db.Integer, db.ForeignKey(Team.id))
-#     campaign_id = db.Column(db.Integer, db.ForeignKey(Campaign.id))
+class Bank(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    provider = db.Column(db.String, nullable=False)
+    account_no = db.Column(db.Integer, nullable=False)
+    # campaign_id = db.Column(db.Integer, db.ForeignKey(Campaign.id), nullable=False)
 
+class Location(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    address = db.Column(db.String, nullable=False, index=True)
+    lat = db.Column(db.Float, nullable=False)
+    lng = db.Column(db.Float, nullable=False)
+ 
 
 # class SubCampaign(db.Model):
 #     id = db.Column(db.Integer, primary_key=True)
 #     campaign_id = db.Column(db.Integer, db.ForeignKey(Campaign.id))
-#     start_at = 
+#     start_at =
 #     end_at =
-#     location = 
+#     location =
 
 # # class Image(db.Model):
 # #     id = db.Column(db.Integer, primary_key=True)
 # #     team_id
 # #     user_id
 # #     campaign_id
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
