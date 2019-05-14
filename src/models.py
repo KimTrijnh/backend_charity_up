@@ -40,6 +40,7 @@ class Team(db.Model):
     # members = db.relationship('user_visit', backref='team', lazy=True)
     campaigns = db.relationship('Campaign', backref='team', lazy=True)
     reviews = db.relationship('Review', backref='team', lazy=True)
+    
 
   
 class Campaign(db.Model):
@@ -54,7 +55,7 @@ class Campaign(db.Model):
     end_at = db.Column(db.DateTime, nullable=False, index=True)
     img_url = db.Column(db.String, nullable=True)
     isActive = db.Column(db.Boolean, default=False)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), default=None)
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=True)
     donations = db.relationship('Donation', backref='campaign', lazy=True)
     # members = db.relationship('user_visit', backref='team', lazy=True)
     reviews = db.relationship('Review', backref='campaign', lazy=True)
@@ -85,6 +86,9 @@ class Location(db.Model):
     address = db.Column(db.String, nullable=False, index=True)
     lat = db.Column(db.Float, nullable=False)
     lng = db.Column(db.Float, nullable=False)
+    campaigns = db.relationship('Campaign', backref='location', lazy=True)
+    teams = db.relationship('Team', backref='location', lazy=True)
+
  
 
 # class SubCampaign(db.Model):
