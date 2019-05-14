@@ -25,9 +25,8 @@ from src.models import *
 def home():
     return 'hello'
 
+
 # AUTH VIEWS
-
-
 def check_username(username):
     user = UserVisit.query.filter_by(username=username).first()
     if user:
@@ -72,12 +71,18 @@ def login():
         data = request.get_json()
         user = UserVisit.query.filter_by(username=data['username']).first()
         if user and user.check_password(data['password']):
-            return jsonify({'isLogin': True, 'current_user': user.username})
+            team = Team.query.filter_by(user_id=user.id).first()
+            if team:
+                teamJson =  {'id': team.id, 'name': team.name}
+            else:
+                teamJson = {}
+            return jsonify({'isLogin': True, 'current_user': user.username, 'team': teamJson})
         else:
             return jsonify({'isLogin': False, 'message': 'Wrong Username/Password'})
     return redirect("http://localhost:3000/login")
 
 
+# CREATE VIEWS
 @app.route('/team/create', methods=['POST', 'GET'])
 def create_team():
     if request.method == 'POST':
@@ -86,17 +91,52 @@ def create_team():
         db.session.add(location)
         db.session.commit()
         creater = UserVisit.query.filter_by(username=data['creater']).first()
-        team = Team(name=data['name'], description=data['description'], location_id=location.id, email=data['email'], user_id= creater.id,
-                    isActive=data['isActive'], img_url=data['img_url'])
+        team = Team.query.filter_by(name=data['name']).first()
         if team:
-            db.session.add(team)
-            db.session.commit()
-            return jsonify({'success': True, 'team_id': team.id})
+            return jsonify({'success': False, 'error': "team's name is already taken"})
         else:
-            return jsonify({'success': False, 'error': 'invalid input'})
+            team = Team(name=data['name'], description=data['description'], location_id=location.id, email=data['email'], user_id= creater.id,
+                    isActive=data['isActive'], img_url=data['img_url'])
+            if team:
+                db.session.add(team)
+                db.session.commit()
+                return jsonify({'success': True, 'team_id': team.id})
+            else:
+                return jsonify({'success': False, 'error': 'invalid input'})
     return jsonify({'message': 'invalid method'})
 
 
+@app.route('/campaign/create', methods=['GET', 'POST'])
+def create_campaign():
+    if request.method == 'POST':
+        data = request.get_json()
+        location = Location(address=data['location']['address'], lat = data['location']['lat'], lng = data['location']['lng'])
+        if data['isDonated']:
+            bank = Bank(provider=data['bank_name'], account_no=data['account_no'])
+            bank_id = bank.id
+            db.session.add(bank)
+        else:
+            bank_id = None      
+        user = UserVisit.query.filter_by(username=data['current_user']).first()
+        db.session.add(location)
+        db.session.commit()
+        if data['team_name']:
+            team = Team.query.filter_by(name=data['team_name']).first()
+        else:
+            team = None
+
+        campaign = Campaign(name=data['campaign_name'], description=data['description'], location_id=location.id, start_at=data['start_at'], end_at=data['end_at'], isActive=data['isActive'], bank_id=bank_id, img_url=data['img_url'])
+        if campaign:
+            db.session.add(campaign)
+            db.session.commit()
+            return jsonify({'success': True, 'campaign': {'id': campaign.id, 'name': campaign.name}, 'team': data['team_name']})
+        else:
+            return jsonify({'success': False, 'error': 'invalid input'})
+        
+    return jsonify({'message': 'invalid method'})
+
+
+#TEAM VIEWS
 # @app.route('/teams', methods=['GET'])
 # def teams():
 #     if request.method == 'GET':
@@ -148,6 +188,7 @@ def create_team():
 #     return jsonify({'message': 'invalid method'})
 
 
+#CAMPAIGN VIEWS
 @login_manager.user_loader
 def load_user(user_id):
     return UserLogin.get(user_id)

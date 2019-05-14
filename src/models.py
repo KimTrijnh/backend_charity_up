@@ -44,12 +44,12 @@ class Team(db.Model):
   
 class Campaign(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), nullable=False, unique=True)
+    name = db.Column(db.String(64), nullable=False)
     description = db.Column(db.String, nullable=False)
     location_id = db.Column(db.Integer, db.ForeignKey('location.id'), nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user_visit.id'), nullable=True)
-    create_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default = datetime.utcnow, server_default= db.func.now())
     start_at = db.Column(db.DateTime, nullable=False, index=True)
     end_at = db.Column(db.DateTime, nullable=False, index=True)
     img_url = db.Column(db.String, nullable=True)
@@ -76,8 +76,8 @@ class Donation(db.Model):
 
 class Bank(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    provider = db.Column(db.String, nullable=False)
-    account_no = db.Column(db.Integer, nullable=False)
+    provider = db.Column(db.String(40), nullable=False)
+    account_no = db.Column(db.String(16), nullable=False)
     # campaign_id = db.Column(db.Integer, db.ForeignKey(Campaign.id), nullable=False)
 
 class Location(db.Model):
