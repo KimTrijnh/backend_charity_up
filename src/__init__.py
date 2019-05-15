@@ -141,9 +141,67 @@ def create_campaign():
         
     return jsonify({'message': 'invalid method'})
 
+@app.route('/review/create', methods=['POST'])
+def create_review():
+    if request.method == 'POST':
+        data = request.get_json()
+        user = UserVisit.query.filter_by(username=data['current_user']).first()
+        review = Review(rating=data['rating'], text=data['text'], user_id=user.id, team_id=data['team_id'])
+        if review:
+            db.session.add(review)
+            db.session.commit()
+            return jsonify({
+                'success': True, 
+                'review': 
+                { 'id': review.id, 
+                'rating': review.rating, 
+                'text': review.text, 
+                'creater': {'name': user.username, 'img_url': user.img_url },
+                'created_at': review.created_at}
+                })
+        else:
+            return jsonify({'success': False, 'error': 'invalid input'})
+    return jsonify({'message': 'invalid method'})
+
+
+
+def average(reviews):
+    sum_rating = 0
+    for r in reviews:
+        sum_rating += r.rating
+    return sum_rating/len(reviews)
+
+@app.route('/team/<int:id>/review', methods=['GET'])
+def getReviews(team_id):
+    reviews = Review.query.filter_by(team_id=id).all()
+    ratedReviews = Review.query.filter(Review.team_id==id, Review.rating != None).all()
+    reviewArray = []
+    total_reviews = len(reviews)
+    total_ratings = len(ratedReviews)
+    if ratedReviews:
+        average_rating = round(average(ratedReviews))
+    else:
+        average_rating = None
+    if reviews:
+        for r in reviews:
+            user = UserVisit.query.filter_by(id=r.user_id).first()
+            reviewArray.append({
+                'id': r.id,
+                'rating': r.rating,
+                'text': r.text,
+                'creater': {'name': user.username, 'img_url': user.img_url },
+                'created_at': r.created_at,
+            })
+    return jsonify({'reviews': reviewArray, 'total_ratings': total_ratings, 'total_reviews': total_reviews, 'average_rating': average_rating})
+    
+    
+
+
+
 
 
 #TEAM VIEWS
+
 @app.route('/team/<int:id>', methods=['GET'])
 def team(id):
     if request.method == 'GET':
@@ -151,25 +209,62 @@ def team(id):
         if team:
             location = Location.query.filter_by(id=team.location_id).first()
             user = UserVisit.query.filter_by(id=team.user_id).first()
+            # for campaigns
+            campaigns = team.campaigns
+            campaignArray = []
+            if campaigns:
+                for c in campaigns:
+                    location = Location.query.filter_by(id=c.location_id).first()
+                    campaignArray.append({
+                        'id': c.id,
+                        'name': c.name,
+                        'start_at': c.start_at,
+                        'end_at': c.end_at,
+                        'isActive': c.isActive,
+                        'location': {'id': location.id, 'address': location.address, 'lat': location.lat, 'lng': location.lng}
+                    })
+            # for reviews
+            reviews = Review.query.filter_by(team_id=id).all()
+            ratedReviews = Review.query.filter(Review.team_id==id, Review.rating != None).all()
+            reviewArray = []
+            if ratedReviews:
+                average_rating = round(average(ratedReviews))
+            else:
+                average_rating = None
+            if reviews:
+                for r in reviews:
+                    user = UserVisit.query.filter_by(id=r.user_id).first()
+                    reviewArray.append({
+                        'id': r.id,
+                        'rating': r.rating,
+                        'text': r.text,
+                        'creater': {'name': user.username, 'img_url': user.img_url },
+                        'created_at': r.created_at,
+                        })
+            
             teamDict = {
                 'id' : team.id,
                 'img_url': team.img_url,
                 'name' : team.name,
                 'description': team.description,
-                'creater' : user.username,
+                'creater': {'name': user.username, 'img_url': user.img_url },
                 'location': {'id': location.id, 'address': location.address, 'lat': location.lat, 'lng': location.lng},
                 'created_at': team.created_at,
                 'email': team.email,
                 'isActive': team.isActive,
-                'total_rating': '',
-                'rating': '',
-                'total_campaign': '',
+                'total_reviews': len(reviews),
+                'reviews': reviewArray,
+                'total_rating': len(ratedReviews),
+                'rating': average_rating,
+                'total_campaign': len(campaigns),
+                'campaigns': campaignArray,
                 'total_member': '',
                 }
             return jsonify({'success': True, 'team' : teamDict})
         else:
             return jsonify({'success': False, 'error': 'Team not found'})
     return jsonify({'message': 'invalid method'})
+
 
 
 
@@ -242,6 +337,31 @@ def campaign(id):
 #     return jsonify({ 'success': False, 'message': 'invalid method'})
 
 
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return UserLogin.get(user_id)
+
+
+
+
+# @app.route('/review/<int:id>', methods=['GET'])
+# def review(id):
+#     if request.method == 'GET':
+
+# @app.route('/team/<int:id>/reviews', methods=['GET'])
+# def reviews(id):
+#     if request.method == 'GET':
+#         reviews = Review.query.filter_by(team_id=id).all()
+#         reviewArray= []
+#         for r in reviews:
+#             user = UserVisit.query.filter_by(id=r.user_id).first()
+#             reviewArray.append({
+#                 'id': r.id,
+#                 'rating': r.rating,
+#                 'text': r.text,
+#                 'creater': {'name': user.username, 'img_url': user.img_url },
+#                 'created_at': r.created_at,
+#             })
+#         return jsonify({'success': True, 'reviews': reviewArray, 'total_reviews': 0, 'total_rate': 0, 'average_rating': 0})

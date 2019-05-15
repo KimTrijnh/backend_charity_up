@@ -64,7 +64,8 @@ class Campaign(db.Model):
 class Review(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     rating = db.Column(db.Integer, nullable=True)
-    text = db.Column(db.String, nullable=True)
+    text = db.Column(db.String, nullable=False)
+    created_at = db.Column(db.DateTime, default = datetime.utcnow, server_default= db.func.now())
     user_id = db.Column(db.Integer, db.ForeignKey('user_visit.id'), nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'))
     campaign_id = db.Column(db.Integer, db.ForeignKey('campaign.id'))
@@ -72,6 +73,7 @@ class Review(db.Model):
 class Donation(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     amount = db.Column(db.String, nullable=False)
+    created_at = db.Column(db.DateTime, default = datetime.utcnow, server_default= db.func.now())
     user_id = db.Column(db.Integer, db.ForeignKey('user_visit.id'), nullable=False)
     campaign_id = db.Column(db.Integer, db.ForeignKey('campaign.id'), nullable=False)
 
