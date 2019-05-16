@@ -69,6 +69,7 @@ class Review(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user_visit.id'), nullable=False)
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'))
     campaign_id = db.Column(db.Integer, db.ForeignKey('campaign.id'))
+    # review for a campaign would only have campaign_id as same as review for team
 
 class Donation(db.Model):
     id = db.Column(db.Integer, primary_key=True)

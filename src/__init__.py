@@ -71,6 +71,7 @@ def login():
     if request.method == 'POST':
         data = request.get_json()
         user = UserVisit.query.filter_by(username=data['username']).first()
+
         if user and user.check_password(data['password']):
             team = Team.query.filter_by(user_id=user.id).first()
             if team:
@@ -102,7 +103,7 @@ def create_team():
             if team:
                 db.session.add(team)
                 db.session.commit()
-                return jsonify({'success': True, 'team_id': team.id})
+                return jsonify({'success': True, 'team': {'team_id': team.id, 'name': team.name}})
             else:
                 return jsonify({'success': False, 'error': 'invalid input'})
     return jsonify({'message': 'invalid method'})
@@ -146,7 +147,7 @@ def create_review():
     if request.method == 'POST':
         data = request.get_json()
         user = UserVisit.query.filter_by(username=data['current_user']).first()
-        review = Review(rating=data['rating'], text=data['text'], user_id=user.id, team_id=data['team_id'])
+        review = Review(rating=data['rating'], text=data['text'], user_id=user.id, team_id=data['team_id'], campaign_id= data['campaign_id'])
         if review:
             db.session.add(review)
             db.session.commit()
@@ -157,7 +158,7 @@ def create_review():
                 'rating': review.rating, 
                 'text': review.text, 
                 'creater': {'name': user.username, 'img_url': user.img_url },
-                'created_at': review.created_at}
+                'created_at': review.created_at},
                 })
         else:
             return jsonify({'success': False, 'error': 'invalid input'})
@@ -202,10 +203,10 @@ def getReviews(team_id):
 
 #TEAM VIEWS
 
-@app.route('/team/<int:id>', methods=['GET'])
-def team(id):
+@app.route('/team/<int:team_id>', methods=['GET'])
+def team(team_id):
     if request.method == 'GET':
-        team = Team.query.filter_by(id=id).first()
+        team = Team.query.filter_by(id=team_id).first()
         if team:
             location = Location.query.filter_by(id=team.location_id).first()
             user = UserVisit.query.filter_by(id=team.user_id).first()
@@ -224,8 +225,8 @@ def team(id):
                         'location': {'id': location.id, 'address': location.address, 'lat': location.lat, 'lng': location.lng}
                     })
             # for reviews
-            reviews = Review.query.filter_by(team_id=id).all()
-            ratedReviews = Review.query.filter(Review.team_id==id, Review.rating != None).all()
+            reviews = Review.query.filter_by(team_id=team_id).all()
+            ratedReviews = Review.query.filter(Review.team_id==team_id, Review.rating != None).all()
             reviewArray = []
             if ratedReviews:
                 average_rating = round(average(ratedReviews))
@@ -258,7 +259,7 @@ def team(id):
                 'rating': average_rating,
                 'total_campaign': len(campaigns),
                 'campaigns': campaignArray,
-                'total_member': '',
+                # 'total_member': '',
                 }
             return jsonify({'success': True, 'team' : teamDict})
         else:
@@ -268,24 +269,42 @@ def team(id):
 
 
 
-@app.route('/campaign/<int:id>', methods=['GET'])
-def campaign(id):
+@app.route('/campaign/<int:campaign_id>', methods=['GET'])
+def campaign(campaign_id):
     if request.method == 'GET':
-        campaign = Campaign.query.filter_by(id=id).first()
+        campaign = Campaign.query.filter_by(id=campaign_id).first()
         if campaign:
             location = Location.query.filter_by(id=campaign.location_id).first()
             user = UserVisit.query.filter_by(id=campaign.user_id).first()
-
+            # CHECK HOST: USER OR A TEAM
             if campaign.team_id:
                 hosted_by = Team.query.filter_by(id=campaign.team_id).first().name
             else:
                 hosted_by = user.username
-
+            # CHECK DONATE OR NONDONATE
             if campaign.bank_id:
                 bank= Bank.query.filter_by(id=campaign.bank_id).first()
                 isDonated = {'status': True, 'bank_name': bank.provider, 'account_no': bank.account_no}
             else:
                 isDonated = {}
+            # REVIEWS OF CAMPAIGNS
+            reviews = campaign.reviews
+            ratedReviews = Review.query.filter(Review.campaign_id==campaign_id, Review.rating != None).all()
+            reviewArray = []
+            if ratedReviews:
+                average_rating = round(average(ratedReviews))
+            else:
+                average_rating = None
+            if reviews:
+                for r in reviews:
+                    user = UserVisit.query.filter_by(id=r.user_id).first()
+                    reviewArray.append({
+                        'id': r.id,
+                        'rating': r.rating,
+                        'text': r.text,
+                        'creater': {'name': user.username, 'img_url': user.img_url },
+                        'created_at': r.created_at,
+                        })
 
             campaignDict = {
                 'id' : campaign.id,
@@ -300,9 +319,11 @@ def campaign(id):
                 'end_at' : campaign.end_at,
                 'isActive': campaign.isActive,
                 'isDonated': isDonated,
-                'total_rating': '',
-                'rating': '',
-                'total_member': '',
+                'reviews': reviewArray,
+                'total_reviews': len(reviews),
+                'total_rating': len(ratedReviews),
+                'rating': average_rating,
+                # 'total_member': '',
                 }
 
             return jsonify({'success': True, 'campaign' : campaignDict})
