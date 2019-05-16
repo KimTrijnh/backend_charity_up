@@ -333,31 +333,99 @@ def campaign(campaign_id):
 
 
 
-# @app.route('/teams', methods=['GET'])
-# def teams():
-#     if request.method == 'GET':
-#         teams = Team.query.all()
-#         teamArray = []
-#         for team in teams:
-#             teamArray.append({
-#                 'id' : team.id,
-#                 'img_url': team.img_url,
-#                 'name' : team.name,
-#                 'description': team.description,
-#                 'user_id' : team.user_id,
-#                 'location': team.location,
-#                 'create_at': team.create_at,
-#                 'email': team.email,
-#                 'isActive': team.isActive,
-#                 'total_rating':
-#                 'rating':
-#                 'total_campaign':
-#                 'total_member':
-#             })
-#         return jsonify({'success': True, teamArray})
-#     return jsonify({ 'success': False, 'message': 'invalid method'})
+@app.route('/teams', methods=['GET'])
+def teams():
+    if request.method == 'GET':
+        teams = Team.query.all()
+        teamArray = []
+        for team in teams:
+            user = UserVisit.query.filter_by(id=team.user_id).first()
+            campaigns = team.campaigns
+            location = Location.query.filter_by(id=team.location_id).first()
+            reviews = team.reviews
+            ratedReviews = Review.query.filter(Review.team_id==team.id, Review.rating != None).all()
+            if ratedReviews:
+                average_rating = round(average(ratedReviews))
+            else:
+                average_rating = None
+           
+            teamArray.append({
+                'id' : team.id,
+                'img_url': team.img_url,
+                'name' : team.name,
+                'description': team.description,
+                'creater' : user.username,
+                'location': {'id': location.id, 'address': location.address, 'lat': location.lat, 'lng': location.lng},
+                'created_at': team.created_at,
+                'email': team.email,
+                'isActive': team.isActive,
+                'total_rating': len(ratedReviews),
+                'rating': average_rating,
+                'total_campaigns': len(campaigns),
+                'total_reviews': len(reviews),
+            })
+        return jsonify({'success': True, 'teams': teamArray})
+    return jsonify({ 'success': False, 'message': 'invalid method'})
 
 
+
+@app.route('/campaigns', methods=['GET'])
+def campaigns():
+    if request.method == 'GET':
+        campaigns = Campaign.query.all()
+        campaignArray = []
+        for campaign in campaigns:
+            location = Location.query.filter_by(id=campaign.location_id).first()
+            user = UserVisit.query.filter_by(id=campaign.user_id).first()
+            # CHECK HOST: USER OR A TEAM
+            if campaign.team_id:
+                hosted_by = Team.query.filter_by(id=campaign.team_id).first().name
+            else:
+                hosted_by = 'user.username'
+            # CHECK DONATE OR NONDONATE
+            if campaign.bank_id:
+                bank= Bank.query.filter_by(id=campaign.bank_id).first()
+                isDonated = {'status': True, 'bank_name': bank.provider, 'account_no': bank.account_no}
+            else:
+                isDonated = {}
+            # REVIEWS OF CAMPAIGNS
+            reviews = campaign.reviews
+            ratedReviews = Review.query.filter(Review.campaign_id==campaign.id, Review.rating != None).all()
+            reviewArray = []
+            if ratedReviews:
+                average_rating = round(average(ratedReviews))
+            else:
+                average_rating = None
+            if reviews:
+                for r in reviews:
+                    user = UserVisit.query.filter_by(id=r.user_id).first()
+                    reviewArray.append({
+                        'id': r.id,
+                        'rating': r.rating,
+                        'text': r.text,
+                        'creater': {'name': user.username, 'img_url': user.img_url },
+                        'created_at': r.created_at,
+                        })         
+            campaignArray.append({
+                'id' : campaign.id,
+                'img_url': campaign.img_url,
+                'name' : campaign.name,
+                'description': campaign.description,
+                'byTeam': campaign.team_id,
+                'hosted_by' : hosted_by,
+                'location': {'id': location.id, 'address': location.address, 'lat': location.lat, 'lng': location.lng},
+                'created_at': campaign.created_at,
+                'start_at' : campaign.start_at,
+                'end_at' : campaign.end_at,
+                'isActive': campaign.isActive,
+                'isDonated': isDonated,
+                'reviews': reviewArray,
+                'total_reviews': len(reviews),
+                'total_rating': len(ratedReviews),
+                'rating': average_rating,
+            })
+        return jsonify({'success': True, 'campaigns': campaignArray})
+    return jsonify({ 'success': False, 'message': 'invalid method'})
 
 
 @login_manager.user_loader
