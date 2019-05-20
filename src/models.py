@@ -11,6 +11,8 @@ class UserVisit(UserMixin, db.Model):
     email = db.Column(db.String(256), unique=True)
     password_hash = db.Column(db.String(120))
     img_url = db.Column(db.String(300))
+    teams = db.relationship('Team', backref='creater', lazy=True)
+    campaigns = db.relationship('Campaign', backref='creater', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)

@@ -6,6 +6,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import login_required, current_user, LoginManager
 from flask_moment import Moment
+from datetime import datetime
+
 
 
 app = Flask(__name__)
@@ -78,7 +80,7 @@ def login():
                 teamJson =  {'id': team.id, 'name': team.name}
             else:
                 teamJson = {}
-            return jsonify({'isLogin': True, 'current_user': user.username, 'team': teamJson})
+            return jsonify({'isLogin': True, 'user_id': user.id ,'current_user': user.username, 'team': teamJson})
         else:
             return jsonify({'isLogin': False, 'message': 'Wrong Username/Password'})
     return redirect("http://localhost:3000/login")
@@ -127,7 +129,7 @@ def create_campaign():
             db.session.add(bank)
             db.session.commit()
             bank_id = bank.id
-        # HOSTED BY AN INDIVIDUAL OR A TEAM (both user_id and team_is are supplied)
+        # HOSTED BY AN INDIVIDUAL OR A TEAM (both user_id and team_id are supplied)
         if data['team_name']:
             team_id = Team.query.filter_by(name=data['team_name']).first().id
        
@@ -164,6 +166,34 @@ def create_review():
             return jsonify({'success': False, 'error': 'invalid input'})
     return jsonify({'message': 'invalid method'})
 
+@app.route('/review/<int:id>', methods=['PUT', 'DELETE'])
+def update_review(id):
+    if request.method == 'PUT':
+        data = request.get_json()
+        review = Review.query.filter_by(id=id).first()
+        user = UserVisit.query.filter_by(id=review.user_id).first()
+        review.rating = data['rating']
+        review.text = data['text']
+        review.created_at = datetime.utcnow()
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'review': 
+                { 'id': review.id, 
+                'rating': review.rating, 
+                'text': review.text, 
+                'creater': {'name': user.username, 'img_url': user.img_url },
+                'created_at': review.created_at},
+            })
+    if request.method == 'DELETE':
+        review = Review.query.filter_by(id=id).first()
+        db.session.delete(review)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'review id ' + str(id) + ' is removed'})
+
+    return jsonify({'message': 'invalid method'})
+
+
 
 
 def average(reviews):
@@ -196,7 +226,6 @@ def getReviews(team_id):
     return jsonify({'reviews': reviewArray, 'total_ratings': total_ratings, 'total_reviews': total_reviews, 'average_rating': average_rating})
     
     
-
 
 
 
@@ -426,6 +455,88 @@ def campaigns():
             })
         return jsonify({'success': True, 'campaigns': campaignArray})
     return jsonify({ 'success': False, 'message': 'invalid method'})
+
+
+
+@app.route('/user/<int:id>', methods=['GET','PUT'])
+def user(id):
+    if request.method == 'GET':
+        user = UserVisit.query.filter_by(id=id).first()
+        if user:
+            teams = user.teams
+            campaigns = user.campaigns
+            teamArray = []
+            campaignArray = []
+            for team in teams:
+                team_campaigns = team.campaigns
+                reviews = team.reviews
+                ratedReviews = Review.query.filter(Review.team_id==team.id, Review.rating != None).all()
+                if ratedReviews:
+                    average_rating = round(average(ratedReviews))
+                else:
+                    average_rating = None
+                teamArray.append({
+                    'id' : team.id,
+                    'name' : team.name,
+                    'isActive': team.isActive,
+                    'total_rating': len(ratedReviews),
+                    'rating': average_rating,
+                    'total_campaigns': len(team_campaigns),
+                    'total_reviews': len(reviews),
+                    })
+            for campaign in campaigns:
+                location = Location.query.filter_by(id=campaign.location_id).first()
+                reviews = campaign.reviews
+                ratedReviews = Review.query.filter(Review.campaign_id == campaign.id, Review.rating != None).all()
+                if ratedReviews:
+                    average_rating = round(average(ratedReviews))
+                else:
+                    average_rating = None
+                campaignArray.append({
+                    'id' : campaign.id,
+                    'name' : campaign.name,
+                    'isActive': campaign.isActive,
+                    'location': {'id': location.id, 'address': location.address, 'lat': location.lat, 'lng': location.lng},
+                    'start_at' : campaign.start_at,
+                    'end_at' : campaign.end_at,
+                    'total_rating': len(ratedReviews),
+                    'rating': average_rating,
+                    'total_campaigns': len(campaigns),
+                    'total_reviews': len(reviews)
+                })
+        
+            return jsonify({
+                'success': True,
+                'user': {
+                    'id': user.id, 
+                    'username': user.username,
+                    'email': user.email,
+                    'password': user.password_hash,
+                    'teams' : teamArray,
+                    'campaigns': campaignArray
+                }
+                })
+        else:
+            return jsonify({'success': False, 'error': 'invalid user'})
+    
+    if request.method == 'PUT':
+        data = request.get_json()
+        user = UserVisit.query.filter_by(id=id).first()
+        user.username = data['username']
+        user.eamil = data['email']
+        user.set_password(data['password'])
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'user': 
+                { 'id': user.id, 
+                'username': user.username, 
+                'email': user.email, 
+                'password': user.password_hash
+            }})
+
+    return jsonify({'message': 'invalid method'})   
+
 
 
 @login_manager.user_loader
